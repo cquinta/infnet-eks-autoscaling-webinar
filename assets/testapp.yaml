@@ -1,0 +1,147 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: moc
+  labels:
+    istio-injection: enabled
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: moc
+  namespace: moc
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "moc.cquinta.com" 
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: moc
+  namespace: moc
+spec:
+  hosts:
+  - "moc.moc.svc.cluster.local"
+  - "moc.cquinta.com"
+  gateways:
+  - moc
+  http:
+  - route:
+    - destination:
+        host: moc
+        port:
+          number: 8000
+    retries:
+      attempts: 3
+      perTryTimeout: 500ms
+      retryOn: 5xx
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: moc
+  namespace: moc
+spec:
+  host: moc.moc.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 3
+      http:
+        http1MaxPendingRequests: 10
+        maxRequestsPerConnection: 10
+    outlierDetection:
+      consecutive5xxErrors: 100
+      interval: 300ms
+      baseEjectionTime: 60s
+      maxEjectionPercent: 50
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moc
+  namespace: moc
+  labels:
+    app: moc
+spec:
+#  replicas: 3
+  selector:
+    matchLabels:
+      app: moc
+  template:
+    metadata:
+      labels:
+        app: moc
+    spec:
+      containers:
+      - name: moc
+        image: cquinta/test-app:main
+        env:
+        - name: VERSION
+          value: "v1"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: moc
+  namespace: moc
+spec:
+  selector:
+    app: moc
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: moc-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: moc
+  minReplicas: 1
+  maxReplicas: 30
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Pods
+        value: 3
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Pods
+        value: 2
+        periodSeconds: 30
+
+---

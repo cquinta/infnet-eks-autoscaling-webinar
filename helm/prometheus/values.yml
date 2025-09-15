@@ -1,0 +1,70 @@
+prometheus:
+  enabled: true
+  prometheusSpec:
+
+    retention: 15d
+
+   
+
+    # Storage
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "efs-prometheus"
+          accessModes:
+            - ReadWriteMany
+          resources:
+            requests:
+              storage: 50Gi
+
+    podMonitorSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+
+kubeStateMetrics:
+  enabled: true
+
+alertmanager:
+  enabled: false
+
+grafana:
+  enabled: true
+  adminUser: admin
+  adminPassword: webinar
+
+  initChownData:
+    enabled: false
+
+  persistence:
+    enabled: true
+    storageClassName: "efs-grafana"
+    accessModes:
+      - ReadWriteMany
+    size: 10Gi
+
+    
+
+prometheusOperator:
+  enabled: true
+  namespaces: ''
+  denyNamespaces: ''
+  prometheusInstanceNamespaces: ''
+  alertmanagerInstanceNamespaces: ''
+  thanosRulerInstanceNamespaces: ''
+
+  
+
+prometheus-node-exporter:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "eks.amazonaws.com/compute-type"
+                operator: "NotIn"
+                values:
+                  - "fargate"

@@ -1,0 +1,37 @@
+# =============================================================================
+# FONTES DE DADOS (DATA SOURCES) PARA O WEBINAR EKS AUTOSCALING
+# =============================================================================
+# Este arquivo contém as fontes de dados utilizadas para recuperar informações
+# de recursos já existentes na AWS, como parâmetros do SSM e informações do cluster
+
+# Recupera o ID da VPC armazenado no Systems Manager Parameter Store
+# Este parâmetro é criado durante a criação da VPC e usado por outros recursos
+data "aws_ssm_parameter" "vpc" {
+  name       = var.ssm_vpc
+  depends_on = [aws_ssm_parameter.vpc]
+}
+
+# Recupera os IDs das subnets públicas do Parameter Store
+# Estas subnets são usadas para NAT Gateways e Load Balancers externos
+data "aws_ssm_parameter" "public_subnets" {
+  count      = length(var.ssm_public_subnets)
+  name       = var.ssm_public_subnets[count.index]
+  depends_on = [aws_ssm_parameter.public_subnets]
+}
+
+# Recupera os IDs das subnets privadas do Parameter Store
+# Estas subnets hospedam os worker nodes do EKS
+data "aws_ssm_parameter" "private_subnets" {
+  count      = length(var.ssm_private_subnets)
+  name       = var.ssm_private_subnets[count.index]
+  depends_on = [aws_ssm_parameter.private_subnets]
+}
+
+# Recupera os IDs das subnets dedicadas para pods do Parameter Store
+# Estas subnets utilizam CIDRs secundários para maior densidade de pods
+data "aws_ssm_parameter" "pod_subnets" {
+  count      = length(var.ssm_pods_subnets)
+  name       = var.ssm_pods_subnets[count.index]
+  depends_on = [aws_ssm_parameter.private_subnets]
+}
+
