@@ -35,6 +35,20 @@ variable "ssm_public_subnets" {
   description = "Lista dos ID's do SSM onde estão as subnets públicas do projeto"
 }
 
+variable "dns_zone" {
+  type = string
+
+}
+
+variable "lista_cnames" {
+  type = list(string)
+  default = [
+    "kiali-webinar",
+    "grafana-webinar",
+    "jaeger-webinar",
+    "moc"
+  ]
+}
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÕES DO CLUSTER EKS
 # -----------------------------------------------------------------------------
@@ -154,3 +168,4 @@ variable "criar_cluster_autoscaler" {
   type        = bool
   default     = false
 }
+

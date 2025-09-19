@@ -7,41 +7,41 @@ resource "helm_release" "jaeger" {
 
   set = [
     {
-    name  = "allInOne.enabled"
-    value = "true"
-   },
-   {
-    name  = "storage.type"
-    value = "memory"
-   },
-   {
-    name  = "agent.enabled"
-    value = "false"
-   },
-   {
-    name  = "collector.enabled"
-    value = "false"
-   },
-   {
-    name  = "query.enabled"
-    value = "false"
-   },
-   {
-    name  = "provisionDataStore.cassandra"
-    value = "false"
-   },
-   {
-    name  = "provisionDataStore.kafka"
-    value = "false"
-   },
-   {
-    name  = "provisionDataStore.elasticsearch"
-    value = "false"
-   }, 
-   {
-    name  = "collector.service.zipkin.port"
-    value = "9411"
-   }
+      name  = "allInOne.enabled"
+      value = "true"
+    },
+    {
+      name  = "storage.type"
+      value = "memory"
+    },
+    {
+      name  = "agent.enabled"
+      value = "false"
+    },
+    {
+      name  = "collector.enabled"
+      value = "false"
+    },
+    {
+      name  = "query.enabled"
+      value = "false"
+    },
+    {
+      name  = "provisionDataStore.cassandra"
+      value = "false"
+    },
+    {
+      name  = "provisionDataStore.kafka"
+      value = "false"
+    },
+    {
+      name  = "provisionDataStore.elasticsearch"
+      value = "false"
+    },
+    {
+      name  = "collector.service.zipkin.port"
+      value = "9411"
+    }
   ]
 
   depends_on = [

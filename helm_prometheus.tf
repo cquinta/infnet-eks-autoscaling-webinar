@@ -14,7 +14,7 @@ resource "helm_release" "prometheus" {
 
   depends_on = [
     aws_eks_cluster.main
-    
+
   ]
 }
 

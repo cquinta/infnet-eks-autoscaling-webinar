@@ -95,6 +95,12 @@ spec:
           limits:
             cpu: 500m
             memory: 256Mi
+        startupProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /healthcheck
+            port: 8000
+          periodSeconds: 10
         ports:
         - containerPort: 8000
 ---
@@ -116,6 +122,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: moc-hpa
+  namespace: moc
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -129,19 +136,19 @@ spec:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 50
+        averageUtilization: 60
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 60
+      stabilizationWindowSeconds: 20
       policies:
       - type: Pods
         value: 3
-        periodSeconds: 60
+        periodSeconds: 30
     scaleDown:
-      stabilizationWindowSeconds: 60
+      stabilizationWindowSeconds: 20
       policies:
       - type: Pods
-        value: 2
+        value: 3
         periodSeconds: 30
 
 ---
