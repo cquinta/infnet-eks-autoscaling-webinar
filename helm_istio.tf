@@ -1,4 +1,7 @@
 resource "helm_release" "istio_base" {
+
+  count = var.criar_istio ? 1 : 0
+
   name       = "istio-base"
   chart      = "base"
   repository = "https://istio-release.storage.googleapis.com/charts"
@@ -15,6 +18,9 @@ resource "helm_release" "istio_base" {
 }
 
 resource "helm_release" "istiod" {
+
+  count = var.criar_istio ? 1 : 0
+
   name       = "istio"
   chart      = "istiod"
   repository = "https://istio-release.storage.googleapis.com/charts"
@@ -45,6 +51,9 @@ resource "helm_release" "istiod" {
 }
 
 resource "helm_release" "istio_ingress" {
+
+  count = var.criar_istio ? 1 : 0
+
   name             = "istio-ingressgateway"
   chart            = "gateway"
   repository       = "https://istio-release.storage.googleapis.com/charts"
@@ -75,6 +84,8 @@ resource "helm_release" "istio_ingress" {
 }
 
 resource "kubectl_manifest" "target_binding_80" {
+  count = var.criar_istio ? 1 : 0
+
   yaml_body = <<YAML
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding

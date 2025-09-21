@@ -22,3 +22,8 @@ data "aws_ssm_parameter" "public_subnets" {
   name  = var.ssm_public_subnets[count.index]
 }
 
+
+data "aws_ssm_parameter" "karpenter_ami" {
+  count = length(var.karpenter_capacity)
+  name  = var.karpenter_capacity[count.index].ami_ssm
+}

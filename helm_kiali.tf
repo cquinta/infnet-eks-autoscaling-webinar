@@ -1,4 +1,6 @@
 resource "helm_release" "kiali-server" {
+  count = var.criar_istio ? 1 : 0
+
   name       = "kiali-server"
   chart      = "kiali-server"
   repository = "https://kiali.org/helm-charts"
@@ -108,6 +110,8 @@ resource "helm_release" "kiali-server" {
 }
 
 resource "kubectl_manifest" "kiali_gateway" {
+  count = var.criar_istio ? 1 : 0
+
   yaml_body = <<YAML
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -133,6 +137,8 @@ YAML
 }
 
 resource "kubectl_manifest" "kiali_virtual_service" {
+  count = var.criar_istio ? 1 : 0
+
   yaml_body = <<YAML
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService

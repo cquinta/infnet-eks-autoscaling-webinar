@@ -1,5 +1,7 @@
 resource "helm_release" "prometheus" {
 
+  count = var.criar_prometheus ? 1 : 0
+
   name             = "prometheus"
   chart            = "kube-prometheus-stack"
   repository       = "https://prometheus-community.github.io/helm-charts"
@@ -19,6 +21,8 @@ resource "helm_release" "prometheus" {
 }
 
 resource "kubectl_manifest" "grafana_gateway" {
+  count = var.criar_prometheus ? 1 : 0
+
   yaml_body  = <<YAML
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -40,6 +44,7 @@ YAML
 }
 
 resource "kubectl_manifest" "grafana_virtual_service" {
+  count      = var.criar_prometheus ? 1 : 0
   yaml_body  = <<YAML
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService

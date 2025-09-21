@@ -161,10 +161,60 @@ variable "addon_efs_csi_version" {
 
 }
 
+variable "karpenter_capacity" {
+  type = list(object({
+    name               = string
+    workload           = string
+    ami_family         = string
+    ami_ssm            = string
+    instance_family    = list(string)
+    instance_sizes     = list(string)
+    capacity_type      = list(string)
+    availability_zones = list(string)
+  }))
+}
+
 #flags
 
 variable "criar_cluster_autoscaler" {
   description = "Define se o recurso autscaling deve ser criado (1 para sim, 0 para não)."
+  type        = bool
+  default     = false
+}
+
+variable "criar_prometheus" {
+  description = "Define se o recurso prometheus deve ser criado (1 para sim, 0 para não)."
+  type        = bool
+  default     = false
+}
+
+variable "criar_istio" {
+  description = "Define se o recurso istio deve ser criado (1 para sim, 0 para não)."
+  type        = bool
+  default     = false
+}
+
+variable "criar_metrics_server" {
+  description = "Define se o recurso metrics server deve ser criado (1 para sim, 0 para não)."
+  type        = bool
+  default     = false
+}
+
+
+variable "criar_metrics_adapter" {
+  description = "Define se o recurso metrics adapter deve ser criado (1 para sim, 0 para não)."
+  type        = bool
+  default     = false
+}
+
+variable "criar_keda" {
+  description = "Define se o recurso keda deve ser criado (1 para sim, 0 para não)."
+  type        = bool
+  default     = false
+}
+
+variable "criar_karpenter" {
+  description = "Define se o recurso karpenter deve ser criado (1 para sim, 0 para não)."
   type        = bool
   default     = false
 }

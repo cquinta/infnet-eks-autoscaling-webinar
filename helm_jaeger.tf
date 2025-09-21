@@ -1,4 +1,6 @@
 resource "helm_release" "jaeger" {
+  count = var.criar_istio ? 1 : 0
+
   name             = "jaeger"
   repository       = "https://jaegertracing.github.io/helm-charts"
   chart            = "jaeger"
@@ -51,6 +53,8 @@ resource "helm_release" "jaeger" {
 }
 
 resource "kubectl_manifest" "jaeger_gateway" {
+  count = var.criar_istio ? 1 : 0
+
   yaml_body = <<YAML
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -77,6 +81,8 @@ YAML
 }
 
 resource "kubectl_manifest" "jaeger_virtual_service" {
+  count = var.criar_istio ? 1 : 0
+
   yaml_body = <<YAML
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService

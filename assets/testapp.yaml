@@ -1,154 +1,78 @@
-
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: moc
-  labels:
-    istio-injection: enabled
-
----
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: moc
-  namespace: moc
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "moc.cquinta.com" 
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: moc
-  namespace: moc
-spec:
-  hosts:
-  - "moc.moc.svc.cluster.local"
-  - "moc.cquinta.com"
-  gateways:
-  - moc
-  http:
-  - route:
-    - destination:
-        host: moc
-        port:
-          number: 8000
-    retries:
-      attempts: 3
-      perTryTimeout: 500ms
-      retryOn: 5xx
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: moc
-  namespace: moc
-spec:
-  host: moc.moc.svc.cluster.local
-  trafficPolicy:
-    connectionPool:
-      tcp:
-        maxConnections: 3
-      http:
-        http1MaxPendingRequests: 10
-        maxRequestsPerConnection: 10
-    outlierDetection:
-      consecutive5xxErrors: 100
-      interval: 300ms
-      baseEjectionTime: 60s
-      maxEjectionPercent: 50
----
+# Deployment da aplicação de teste para demonstração de autoscaling
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: moc
-  namespace: moc
+  name: test-app
   labels:
-    app: moc
+    app: test-app
 spec:
-#  replicas: 3
+  replicas: 3  # Número inicial de réplicas
   selector:
     matchLabels:
-      app: moc
+      app: test-app
   template:
     metadata:
       labels:
-        app: moc
+        app: test-app
     spec:
       containers:
-      - name: moc
-        image: cquinta/test-app:main
+      - name: test-app
+        image: cquinta/test-app:main  # Imagem da aplicação de teste
         env:
         - name: VERSION
-          value: "v1"
+          value: "v1"  # Versão da aplicação
         resources:
-          requests:
-            cpu: 250m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 256Mi
-        startupProbe:
-          failureThreshold: 10
-          httpGet:
-            path: /healthcheck
-            port: 8000
-          periodSeconds: 10
+          requests:  # Recursos mínimos garantidos
+            cpu: 250m     # 1/4 de CPU
+            memory: 128Mi # 128MB de memória
+          limits:    # Limites máximos de recursos
+            cpu: 500m     # 1/2 de CPU
+            memory: 256Mi # 256MB de memória
         ports:
-        - containerPort: 8000
+        - containerPort: 8000  # Porta da aplicação
 ---
+# Service ClusterIP para acesso interno ao deployment
 apiVersion: v1
 kind: Service
 metadata:
-  name: moc
-  namespace: moc
+  name: test-app-service
 spec:
   selector:
-    app: moc
+    app: test-app
   ports:
-  - port: 8000
-    targetPort: 8000
-  type: ClusterIP
+  - port: 80          # Porta do service
+    targetPort: 8000  # Porta do container
+  type: ClusterIP     # Acesso apenas interno ao cluster
 ---
-
+# HPA para escalonamento automático baseado em CPU
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: moc-hpa
-  namespace: moc
+  name: test-app-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: moc
-  minReplicas: 1
-  maxReplicas: 30
+    name: test-app  # Deployment alvo do autoscaling
+  minReplicas: 3    # Mínimo de 3 pods
+  maxReplicas: 10   # Máximo de 10 pods
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 60
+        averageUtilization: 50  # Target de 50% de CPU
   behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 20
+    scaleUp:  # Comportamento para escalar para cima
+      stabilizationWindowSeconds: 60
       policies:
       - type: Pods
-        value: 3
-        periodSeconds: 30
-    scaleDown:
-      stabilizationWindowSeconds: 20
+        value: 1          # Adiciona 1 pod por vez
+        periodSeconds: 60 # A cada 60 segundos
+    scaleDown:  # Comportamento para escalar para baixo
+      stabilizationWindowSeconds: 60
       policies:
       - type: Pods
-        value: 3
-        periodSeconds: 30
-
----
+        value: 1          # Remove 1 pod por vez
+        periodSeconds: 60 # A cada 60 segundos

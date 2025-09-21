@@ -1,0 +1,16 @@
+prometheus:
+  # Value is templated
+  url: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local
+  port: 9090
+  path: ""
+
+
+rules:
+  custom:
+    - seriesQuery: '{__name__=~"^http_requests_total$"}'
+      resources:
+        template: <<.Resource>>
+      name:
+        matches: "^http_requests_total$"
+        as: "http_requests_per_second"
+      metricsQuery: sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (<<.GroupBy>>)

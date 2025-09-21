@@ -1,4 +1,6 @@
 resource "kubectl_manifest" "envoy_pod_monitor" {
+  count = var.criar_prometheus ? 1 : 0
+
   yaml_body = <<YAML
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor

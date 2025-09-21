@@ -10,9 +10,9 @@ resource "aws_route53_record" "webinar_cnames" {
   #   weight = 10
   # }
 
-  
-  records        = [aws_lb.main.dns_name]
-  depends_on     = [aws_lb.main]
+
+  records    = [aws_lb.main.dns_name]
+  depends_on = [aws_lb.main]
 
 }
 

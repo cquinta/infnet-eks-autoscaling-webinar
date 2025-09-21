@@ -1,0 +1,81 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: moc
+  labels:
+    istio-injection: enabled
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moc
+  namespace: moc
+  labels:
+    app: moc
+spec:
+#  replicas: 3
+  selector:
+    matchLabels:
+      app: moc
+  template:
+    metadata:
+      labels:
+        app: moc
+    spec:
+      containers:
+      - name: moc
+        image: cquinta/test-app:main
+        env:
+        - name: VERSION
+          value: "v1"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+          #  memory: 256Mi
+        startupProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /healthcheck
+            port: 8000
+          periodSeconds: 20
+        ports:
+        - containerPort: 8000
+
+        #readinessProbe:
+        #  httpGet:
+        #    path: /healthcheck
+        #    port: 8000
+        #  periodSeconds: 15
+        
+        #livenessProbe:
+        #  httpGet:
+        #    path: /healthcheck
+        #    port: 8000
+        #  periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: moc
+  namespace: moc
+  annotations:
+    prometheus.io/port: "metrics"
+    prometheus.io/scrape: "true"
+  labels:
+    app: moc
+spec:
+  selector:
+    app: moc
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+
