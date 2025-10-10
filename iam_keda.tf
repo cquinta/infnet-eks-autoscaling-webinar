@@ -9,6 +9,13 @@ data "aws_iam_policy_document" "keda_role" {
       identifiers = ["pods.eks.amazonaws.com"]
     }
 
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::707257249187:role/webinar-infnet-keda"]
+    }
+
+
+
     actions = [
       "sts:AssumeRole",
       "sts:TagSession"
@@ -29,8 +36,19 @@ data "aws_iam_policy_document" "keda_policy" {
 
     effect = "Allow"
     actions = [
-      "sqs:Get*",
-      "sqs:Describe*",
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "sqs:GetQueueAttributes",
+      "sqs:GetQueueUrl",
+      "sqs:ListDeadLetterSourceQueues",
+      "sqs:ListQueues",
+      "sqs:ListMessageMoveTasks",
+      "sqs:ListQueueTags"
+      
     ]
 
     resources = [

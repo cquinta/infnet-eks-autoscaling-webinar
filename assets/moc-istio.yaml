@@ -48,10 +48,10 @@ spec:
       tcp:
         maxConnections: 10
       http:
-        http1MaxPendingRequests: 30
-        maxRequestsPerConnection: 20
+        http1MaxPendingRequests: 600
+        maxRequestsPerConnection: 100
     outlierDetection:
-      consecutive5xxErrors: 100
-      interval: 300ms
+      consecutive5xxErrors: 1000
+      interval: 600ms
       baseEjectionTime: 60s
       maxEjectionPercent: 50

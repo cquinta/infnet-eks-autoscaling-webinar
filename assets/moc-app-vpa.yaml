@@ -26,10 +26,12 @@ metadata:
   namespace: moc
   labels:
     app: moc
+
 spec:
   selector:
     matchLabels:
       app: moc
+  replicas: 2
   template:
     metadata:
       labels:
@@ -38,20 +40,19 @@ spec:
       serviceAccountName: moc-user
       containers:
       - name: moc
-        image: cquinta/moc-app:main  # Imagem da aplicação mock
-        imagePullPolicy: Always
+        image: cquinta/moc-app:latest  # Imagem da aplicação mock
         env:
         - name: VERSION
-          value: "v2"  # Versão da aplicação
+          value: "v1"  # Versão da aplicação
         - name: SQS_QUEUE_URL
-          value: "https://sqs.us-east-1.amazonaws.com/707257249187/teste" # Endpoint da Fila do SQS
+          value: "https://sqs.us-east-1.amazonaws.com/707257249187/teste"
         - name: AWS_REGION
           value: "us-east-1"  # Região AWS
         resources:
           requests:  # Recursos mínimos garantidos
             cpu: 250m     # 1/4 de CPU
             memory: 128Mi # 128MB de memória
-          limits:    # Limites máximos
+          limits:    # Não usar com VPA
             cpu: 500m     # 1/2 de CPU
             memory: 256Mi
         startupProbe:  # Probe de inicialização
@@ -64,11 +65,11 @@ spec:
          - containerPort: 8000  # Porta da aplicação
 
         # Probes comentados para configuração opcional
-        readinessProbe:
-          httpGet:
-            path: /healthcheck
-            port: 8000
-          periodSeconds: 60
+        #readinessProbe:
+        #  httpGet:
+        #    path: /healthcheck
+        #    port: 8000
+        #  periodSeconds: 15
         
        # livenessProbe:
        #   httpGet:
@@ -94,5 +95,5 @@ spec:
   - name: http
     port: 8000          # Porta do service
     targetPort: 8000    # Porta do container
-  type: ClusterIP       # Acesso apenas interno
+  type: ClusterIP      # Acesso apenas interno
 ---

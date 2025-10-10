@@ -10,7 +10,7 @@ resource "aws_security_group" "efs" {
 
   # Regra de entrada - permite acesso NFS na porta 2049
   ingress {
-    from_port   = 2049          # Porta padrão do NFS
+    from_port   = 2049 # Porta padrão do NFS
     to_port     = 2049
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"] # Permite acesso de toda a VPC
@@ -20,7 +20,7 @@ resource "aws_security_group" "efs" {
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"           # Todos os protocolos
+    protocol    = "-1" # Todos os protocolos
     cidr_blocks = ["0.0.0.0/0"]
   }
 }

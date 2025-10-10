@@ -1,14 +1,19 @@
+# =============================================================================
+# KIALI PARA OBSERVABILIDADE DO SERVICE MESH
+# =============================================================================
+# Instala Kiali para visualização e gerenciamento do Istio
+
+# Chart Helm do Kiali
+# Console web para observabilidade do service mesh Istio
 resource "helm_release" "kiali-server" {
-  count = var.criar_istio ? 1 : 0
+  count = var.criar_istio ? 1 : 0 # Instala apenas se Istio estiver habilitado
 
-  name       = "kiali-server"
-  chart      = "kiali-server"
-  repository = "https://kiali.org/helm-charts"
-  namespace  = "istio-system"
-
+  name             = "kiali-server"
+  chart            = "kiali-server"
+  repository       = "https://kiali.org/helm-charts" # Repositório oficial
+  namespace        = "istio-system"
   create_namespace = true
-
-  version = var.kiali_version
+  version          = var.kiali_version
 
   set = [
     {

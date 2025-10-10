@@ -1,12 +1,24 @@
 apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-trigger-auth-aws-credentials
+  namespace: moc
+spec:
+  podIdentity:
+    provider: aws
+    roleArn: arn:aws:iam::707257249187:role/webinar-infnet-keda
+---
+apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
   name: moc-high-tps
   namespace: moc
 spec:
+  
   scaleTargetRef:
-    name: moc
-  minReplicaCount: 1
+    name: consumer
+    
+  minReplicaCount: 0
   maxReplicaCount: 30
   pollingInterval: 10  
   cooldownPeriod:  30
@@ -18,10 +30,22 @@ spec:
         scaleUp:
           stabilizationWindowSeconds: 30          
   triggers:
-  - type: prometheus
+ # - type: prometheus
+ #   metadata:
+ #     serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
+ #     metricName: istio_requests_total 
+ #     threshold: "5" # <---- Quantidade de requisições por pod. No exemplo, 5 TPS. 
+ #     query: |
+ #       sum(rate(istio_requests_total{destination_service_name="moc"}[1m])) 
+
+  - type: aws-sqs-queue
+    authenticationRef:
+      name: keda-trigger-auth-aws-credentials
     metadata:
-      serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
-      metricName: istio_requests_total 
-      threshold: "5" # <---- Quantidade de requisições por pod. No exemplo, 5 TPS. 
-      query: |
-        sum(rate(istio_requests_total{destination_service_name="moc"}[1m])) 
+      awsRegion: us-east-1
+      queueURL: https://sqs.us-east-1.amazonaws.com/707257249187/teste
+      queueLength: "20" # <---- Quantidade de mensagens na fila. No exemplo, 5 mensagens. 
+      identityOwner: operator
+
+      
+      

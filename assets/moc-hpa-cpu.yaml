@@ -1,3 +1,4 @@
+# HPA para escalonamento automático da aplicação MOC baseado em CPU
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -7,27 +8,27 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: moc
-  minReplicas: 1
-  maxReplicas: 5
+    name: moc  # Deployment alvo do autoscaling
+  minReplicas: 1    # Mínimo de 1 pod
+  maxReplicas: 5    # Máximo de 5 pods
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 60
+        averageUtilization: 60  # Target de 60% de CPU
    
   behavior:
-    scaleUp:
+    scaleUp:  # Comportamento para escalar para cima
       stabilizationWindowSeconds: 20
       policies:
       - type: Pods
-        value: 1
-        periodSeconds: 30
-    scaleDown:
+        value: 3          # Adiciona 1 pod por vez
+        periodSeconds: 30 # A cada 30 segundos
+    scaleDown:  # Comportamento para escalar para baixo
       stabilizationWindowSeconds: 20
       policies:
       - type: Pods
-        value: 1
-        periodSeconds: 30
+        value: 1          # Remove 1 pod por vez
+        periodSeconds: 30 # A cada 30 segundos

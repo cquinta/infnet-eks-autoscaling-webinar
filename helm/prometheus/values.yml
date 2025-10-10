@@ -15,7 +15,7 @@ prometheus:
             - ReadWriteMany
           resources:
             requests:
-              storage: 50Gi
+              storage: 100Gi
 
     podMonitorSelector: {}
     podMonitorSelectorNilUsesHelmValues: false
@@ -44,7 +44,7 @@ grafana:
     storageClassName: "efs-grafana"
     accessModes:
       - ReadWriteMany
-    size: 10Gi
+    size: 50Gi
 
     
 

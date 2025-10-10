@@ -1,22 +1,26 @@
-resource "helm_release" "prometheus" {
+# =============================================================================
+# PROMETHEUS STACK PARA MONITORAMENTO
+# =============================================================================
+# Instala stack completo de monitoramento com Prometheus e Grafana
 
-  count = var.criar_prometheus ? 1 : 0
+# Chart Helm do Kube-Prometheus-Stack
+# Inclui Prometheus, Grafana, AlertManager e exporters
+resource "helm_release" "prometheus" {
+  count = var.criar_prometheus ? 1 : 0 # Instalação condicional
 
   name             = "prometheus"
   chart            = "kube-prometheus-stack"
-  repository       = "https://prometheus-community.github.io/helm-charts"
+  repository       = "https://prometheus-community.github.io/helm-charts" # Repo oficial
   namespace        = "prometheus"
   create_namespace = true
 
-  #version = "69.3.2"
-
+  # Arquivo de valores customizados
   values = [
     "${file("./helm/prometheus/values.yml")}"
   ]
 
   depends_on = [
     aws_eks_cluster.main
-
   ]
 }
 

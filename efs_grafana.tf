@@ -6,7 +6,7 @@
 # Sistema de arquivos EFS para o Grafana
 resource "aws_efs_file_system" "grafana" {
   creation_token   = format("%s-efs-grafana", var.project_name)
-  performance_mode = "generalPurpose"  # Modo de performance balanceado
+  performance_mode = "generalPurpose" # Modo de performance balanceado
 
   tags = {
     Name = format("%s-efs-grafana", var.project_name)
@@ -21,7 +21,7 @@ resource "aws_efs_mount_target" "grafana" {
   file_system_id = aws_efs_file_system.grafana.id
   subnet_id      = data.aws_ssm_parameter.subnets[count.index].value
   security_groups = [
-    aws_security_group.efs.id  # Security group com regras NFS
+    aws_security_group.efs.id # Security group com regras NFS
   ]
 }
 

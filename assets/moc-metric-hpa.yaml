@@ -17,9 +17,7 @@ spec:
         name: http_requests_per_second
       target: # <- Corretamente indentado DENTRO de 'pods'
         type: AverageValue
-        # O valor "3k" (3000) veio da sua mensagem de erro.
-        # O HPA tentará manter a média de 3000 requisições/segundo por pod.
-        averageValue: "3"
+        averageValue: "10"
 
   behavior:
     scaleUp:

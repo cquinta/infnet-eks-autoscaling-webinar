@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  namespace: moc
+spec:
+  
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      serviceAccountName: moc-user
+      containers:
+      - name: curl-container
+        image: curlimages/curl:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            curl moc.moc.svc.cluster.local:8000/receive-message;
+            sleep 5;
+          done
+        resources:
+          requests:  # Recursos mínimos garantidos
+            cpu: 250m     # 1/4 de CPU
+            memory: 128Mi # 128MB de memória
+          limits:    # Limites máximos
+            cpu: 500m     # 1/2 de CPU
+            memory: 256Mi
