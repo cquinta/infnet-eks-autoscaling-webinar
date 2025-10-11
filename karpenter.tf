@@ -27,6 +27,7 @@ resource "kubectl_manifest" "nodepool" {
     INSTANCE_SIZES     = var.karpenter_capacity[count.index].instance_sizes
     CAPACITY_TYPE      = var.karpenter_capacity[count.index].capacity_type
     AVAILABILITY_ZONES = var.karpenter_capacity[count.index].availability_zones
+    CAPACITY_SPREAD = var.karpenter_capacity[count.index].capacity_spread
   })
 
   depends_on = [

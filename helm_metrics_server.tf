@@ -9,11 +9,12 @@ resource "helm_release" "metrics_server" {
   count = var.criar_metrics_server ? 1 : 0 # Instalação condicional
 
   name       = "metrics-server"
-  repository = "https://charts.bitnami.com/bitnami" # Repositório Bitnami
+  repository = "https://kubernetes-sigs.github.io/metrics-server"
+  #repository = "https://charts.bitnami.com/bitnami" # Repositório Bitnami - Descontinuado
   chart      = "metrics-server"
   namespace  = "kube-system" # Namespace do sistema
   wait       = false         # Não aguarda deploy completo
-  version    = "7.2.16"      # Versão estável
+  #version    = "7.2.16"      # Versão estável
 
   set = [{
     name  = "apiService.create"

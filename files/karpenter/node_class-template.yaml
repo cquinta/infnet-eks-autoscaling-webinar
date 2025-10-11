@@ -1,0 +1,222 @@
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  
+  name: default
+spec:
+  # Configurações do Kubelet para os nós provisionados por esta classe.
+  kubelet:
+    podsPerCore: 2
+    # Número máximo absoluto de pods que podem ser executados em um nó.
+    maxPods: 20
+    # Recursos reservados para daemons do sistema operacional.
+    systemReserved:
+      cpu: 100m
+      memory: 100Mi
+      ephemeral-storage: 1Gi
+    # Recursos reservados para componentes do Kubernetes (kubelet, runtime do contêiner, etc.).
+    kubeReserved:
+      cpu: 200m
+      memory: 100Mi
+      ephemeral-storage: 3Gi
+    # Limites rígidos de evicção. Quando atingidos, os pods são removidos imediatamente, sem período de carência.
+    evictionHard:
+      memory.available: 5%
+      nodefs.available: 10%
+      nodefs.inodesFree: 10%
+    # Limites flexíveis de evicção. Quando atingidos, um período de carência é iniciado antes da remoção dos pods.
+    evictionSoft:
+      memory.available: 500Mi
+      nodefs.available: 15%
+      nodefs.inodesFree: 15%
+    # Duração do período de carência para os limites flexíveis de evicção.
+    evictionSoftGracePeriod:
+      memory.available: 1m
+      nodefs.available: 1m30s
+      nodefs.inodesFree: 2m
+    # Período de carência máximo (em segundos) concedido aos pods durante uma evicção por pressão de recursos no nó.
+    evictionMaxPodGracePeriod: 60
+    # Limite superior (percentual de uso do disco) para acionar a coleta de lixo (garbage collection) de imagens.
+    imageGCHighThresholdPercent: 85
+    # Limite inferior (percentual de uso do disco) para a coleta de lixo de imagens.
+    imageGCLowThresholdPercent: 80
+    # Habilita a aplicação de cota do CFS (Completely Fair Scheduler) da CPU para contêineres.
+    cpuCFSQuota: true
+    # Endereços IP dos servidores DNS do cluster a serem configurados no nó.
+    clusterDNS: ["10.0.1.100"]
+    
+  # Opcional, dita a geração do UserData e os mapeamentos de dispositivos de bloco (block device) padrão.
+  # Pode ser omitido ao usar um termo seletor de AMI (amiSelectorTerm) do tipo `alias`, caso contrário, é obrigatório.
+  amiFamily: AL2
+
+  # Obrigatório, descobre sub-redes (subnets) para anexar às instâncias.
+  # Cada termo no array de subnetSelectorTerms é combinado com um OU lógico (OR).
+  # Dentro de um único termo, todas as condições são combinadas com um E lógico (AND).
+  subnetSelectorTerms:
+    # Seleciona qualquer subnet que tenha a tag "karpenter.sh/discovery: ${CLUSTER_NAME}"
+    # E a tag "environment: test" OU qualquer subnet com o ID "subnet-09fa4a0a8f233a921".
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+        environment: test
+    - id: subnet-09fa4a0a8f233a921
+
+  # Obrigatório, descobre grupos de segurança (security groups) para anexar às instâncias.
+  # Cada termo no array de securityGroupSelectorTerms é combinado com um OU lógico (OR).
+  # Dentro de um único termo, todas as condições são combinadas com um E lógico (AND).
+  securityGroupSelectorTerms:
+    # Seleciona qualquer grupo de segurança que tenha tanto a tag "karpenter.sh/discovery: ${CLUSTER_NAME}"
+    # E a tag "environment: test" OU qualquer grupo de segurança com o nome "my-security-group"
+    # OU qualquer grupo de segurança com o ID "sg-063d7acfb4b06c82c".
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+        environment: test
+    - name: my-security-group
+    - id: sg-063d7acfb4b06c82c
+
+  # Opcional, role (função) do IAM a ser usada para a identidade do nó.
+  # É necessário especificar um dos dois, "role" ou "instanceProfile", para que o Karpenter possa lançar nós.
+  role: "KarpenterNodeRole-${CLUSTER_NAME}"
+
+  # Opcional, perfil de instância (instance profile) do IAM a ser usado para a identidade do nó.
+  # É necessário especificar um dos dois, "role" ou "instanceProfile", para que o Karpenter possa lançar nós.
+  instanceProfile: "KarpenterNodeInstanceProfile-${CLUSTER_NAME}"
+
+  # Cada termo no array de amiSelectorTerms é combinado com um OU lógico (OR).
+  # Dentro de um único termo, todas as condições são combinadas com um E lógico (AND).
+  amiSelectorTerms:
+    # Seleciona qualquer AMI que tenha tanto a tag `karpenter.sh/discovery: ${CLUSTER_NAME}`
+    # E a tag `environment: test` OU qualquer AMI com o nome `my-ami` OU uma AMI com
+    # o ID `ami-123` OU uma AMI com ID correspondente ao valor de my-custom-parameter.
+    - tags:
+        karpenter.sh/discovery: "${CLUSTER_NAME}"
+        environment: test
+    - name: my-ami
+    - id: ami-123
+    - ssmParameter: my-custom-parameter # nome do parâmetro SSM ou ARN
+    # Seleciona AMIs otimizadas para EKS AL2023 com a versão `v20240703`. Este termo é mutuamente
+    # exclusivo e não pode ser especificado com outros termos.
+    # - alias: al2023@v20240703
+
+  # Opcional, cada termo no array de capacityReservationSelectorTerms é combinado com um OU lógico (OR).
+  capacityReservationSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${CLUSTER_NAME}
+    - id: cr-123
+    - instanceMatchCriteria: open
+
+  # Opcional, propaga tags para os recursos EC2 subjacentes.
+  tags:
+    team: team-a
+    app: team-a-app
+
+  # Opcional, configura o IMDS (Instance Metadata Service) para a instância.
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: disabled
+    httpPutResponseHopLimit: 1 # Isso é alterado para desabilitar o acesso ao IMDS de contêineres que não estão na rede do host.
+    httpTokens: required
+
+  # Opcional, configura dispositivos de armazenamento para a instância.
+  blockDeviceMappings:
+    - deviceName: /dev/xvda # O nome do dispositivo no sistema operacional (ex: /dev/xvda para o volume raiz).
+      ebs:
+        volumeSize: 100Gi # O tamanho do volume em GiB.
+        volumeType: gp3 # O tipo de volume EBS (ex: gp3, io2, st1).
+        iops: 10000 # As operações de I/O por segundo (IOPS) provisionadas para o volume.
+        encrypted: true # Define se o volume deve ser criptografado.
+        kmsKeyID: "1234abcd-12ab-34cd-56ef-1234567890ab" # O ID ou ARN da chave KMS a ser usada para criptografia.
+        deleteOnTermination: true # Se verdadeiro, o volume EBS será excluído quando a instância for terminada.
+        throughput: 125 # A taxa de transferência (throughput) a ser provisionada para o volume, em MiB/s.
+        snapshotID: snap-0123456789 # O ID do snapshot a partir do qual o volume será criado.
+        volumeInitializationRate: 100 # A taxa de inicialização rápida (Fast Snapshot Restore) do volume, em MiB/s.
+
+  # Opcional, usa volumes de armazenamento de instância (instance-store) para o armazenamento efêmero do nó.
+  instanceStorePolicy: RAID0
+
+  # Opcional, sobrescreve o userdata autogerado com uma semântica de mesclagem (merge).
+  userData: |
+    echo "Hello world"    
+
+  # Opcional, configura o monitoramento detalhado para a instância.
+  detailedMonitoring: true
+
+  # Opcional, configura se a instância deve ser lançada com um endereço IP público associado.
+  # Se não especificado, o valor padrão depende da configuração de atribuição automática de IP público da subnet.
+  associatePublicIPAddress: true
+# A seção 'status' reflete o estado resolvido dos seletores definidos na especificação ('spec'). Não é configurável pelo usuário.
+status:
+  # Lista das sub-redes que correspondem aos seletores.
+  subnets:
+    - id: subnet-0a462d98193ff9fac
+      zone: us-east-2b
+    - id: subnet-0322dfafd76a609b6
+      zone: us-east-2c
+    - id: subnet-0727ef01daf4ac9fe
+      zone: us-east-2b
+    - id: subnet-00c99aeafe2a70304
+      zone: us-east-2a
+    - id: subnet-023b232fd5eb0028e
+      zone: us-east-2c
+    - id: subnet-03941e7ad6afeaa72
+      zone: us-east-2a
+
+  # Lista dos grupos de segurança que correspondem aos seletores.
+  securityGroups:
+    - id: sg-041513b454818610b
+      name: ClusterSharedNodeSecurityGroup
+    - id: sg-0286715698b894bca
+      name: ControlPlaneSecurityGroup-1AQ073TSAAPW
+
+  # Lista das AMIs que correspondem aos seletores, com seus requisitos.
+  amis:
+    - id: ami-01234567890123456
+      name: custom-ami-amd64
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values:
+            - amd64
+    - id: ami-01234567890123456
+      name: custom-ami-arm64
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values:
+            - arm64
+
+  # Lista das Reservas de Capacidade que correspondem aos seletores.
+  capacityReservations:
+    - availabilityZone: us-west-2a
+      id: cr-01234567890123456
+      instanceMatchCriteria: targeted
+      instanceType: g6.48xlarge
+      ownerID: "012345678901"
+      reservationType: capacity-block
+      state: expiring
+    - availabilityZone: us-west-2c
+      id: cr-12345678901234567
+      instanceMatchCriteria: open
+      instanceType: g6.48xlarge
+      ownerID: "98765432109"
+      reservationType: default
+      state: active
+
+  # O nome do perfil de instância (instance profile) gerado a partir da 'role' especificada.
+  instanceProfile: "${CLUSTER_NAME}-0123456778901234567789"
+  # Condições que indicam o estado de prontidão dos recursos da NodeClass.
+  conditions:
+    - lastTransitionTime: "2024-02-02T19:54:34Z"
+      status: "True"
+      type: InstanceProfileReady
+    - lastTransitionTime: "2024-02-02T19:54:34Z"
+      status: "True"
+      type: SubnetsReady
+    - lastTransitionTime: "2024-02-02T19:54:34Z"
+      status: "True"
+      type: SecurityGroupsReady
+    - lastTransitionTime: "2024-02-02T19:54:34Z"
+      status: "True"
+      type: AMIsReady
+    - lastTransitionTime: "2024-02-02T19:54:34Z"
+      status: "True"
+      type: Ready

@@ -170,6 +170,7 @@ variable "karpenter_capacity" {
     instance_family    = list(string)
     instance_sizes     = list(string)
     capacity_type      = list(string)
+    capacity_spread     = list(string)
     availability_zones = list(string)
   }))
 }

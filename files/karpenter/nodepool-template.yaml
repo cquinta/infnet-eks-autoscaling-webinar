@@ -1,0 +1,114 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    metadata:
+      # Labels são pares de chave-valor arbitrários que são aplicados a todos os nós.
+      labels:
+        billing-team: my-team
+      # Anotações (Annotations) são pares de chave-valor arbitrários que são aplicados a todos os nós.
+      annotations:
+        example.com/owner: "my-team"
+    spec:
+      # Referencia o recurso NodeClass do Provedor de Nuvem, consulte a documentação específica do seu provedor de nuvem.
+      nodeClassRef:
+        group: karpenter.k8s.aws  
+        kind: EC2NodeClass
+        name: default
+
+      # Nós provisionados terão estes taints.
+      # Taints podem impedir o agendamento de pods se eles não forem tolerados pelo pod.
+      taints:
+        - key: example.com/special-taint
+          effect: NoSchedule
+
+      
+      # A quantidade de tempo que um Nó pode existir no cluster antes de ser removido.
+      
+      # Nota: alterar este valor no pool de nós (nodepool) causará um desvio (drift) nos nodeclaims.
+      expireAfter: 720h | Never
+
+      # A quantidade de tempo que um nó pode ficar em estado de "draining" (drenagem) antes de ser forçosamente excluído. Um nó começa a drenar quando uma chamada de exclusão é feita contra ele, iniciando
+      
+      terminationGracePeriod: 48h
+
+      # Requisitos que restringem os parâmetros dos nós provisionados.
+      # Estes requisitos são combinados com as regras de pod.spec.topologySpreadConstraints, pod.spec.affinity.nodeAffinity, pod.spec.affinity.podAffinity e pod.spec.nodeSelector.
+      # Operadores { In, NotIn, Exists, DoesNotExist, Gt, e Lt } são suportados.
+      # https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#operators
+      requirements:
+        - key: "karpenter.k8s.aws/instance-category"
+          operator: In
+          values: ["c", "m", "r"]
+          # minValues aqui força o agendador a considerar pelo menos esse número de categorias de instância (instance-category) únicas para agendar os pods.
+          minValues: 2
+        - key: "karpenter.k8s.aws/instance-family"
+          operator: In
+          values: ["m5","m5d","c5","c5d","c4","r4"]
+          minValues: 5
+        - key: "karpenter.k8s.aws/instance-cpu"
+          operator: In
+          values: ["4", "8", "16", "32"]
+        - key: "karpenter.k8s.aws/instance-hypervisor"
+          operator: In
+          values: ["nitro"]
+        - key: "karpenter.k8s.aws/instance-generation"
+          operator: Gt
+          values: ["2"]
+        - key: "topology.kubernetes.io/zone"
+          operator: In
+          values: ["us-west-2a", "us-west-2b"]
+        - key: "kubernetes.io/arch"
+          operator: In
+          values: ["arm64", "amd64"]
+        - key: "karpenter.sh/capacity-type"
+          operator: In
+          values: ["spot", "on-demand", "reserved"]
+
+  # Seção de interrupção (disruption) que descreve as maneiras como o Karpenter pode interromper e substituir Nós.
+  # A configuração nesta seção restringe o quão agressivo o Karpenter pode ser ao realizar operações
+  # como a rotação de Nós devido ao atingimento de sua vida útil máxima (expiração) ou a redução de escala de nós para diminuir o custo do cluster.
+  disruption:
+    # Descreve quais tipos de Nós o Karpenter deve considerar para consolidação.
+    # Se usar 'WhenEmptyOrUnderutilized', o Karpenter considerará todos os nós para consolidação e tentará remover ou substituir Nós quando descobrir que o Nó está vazio ou subutilizado e poderia ser alterado para reduzir o custo.
+    # Se usar 'WhenEmpty', o Karpenter considerará para consolidação apenas os nós que não contêm pods de carga de trabalho (workload).
+    consolidationPolicy: WhenEmptyOrUnderutilized | WhenEmpty
+
+    # A quantidade de tempo que o Karpenter deve esperar para consolidar um nó após um pod ter sido adicionado ou removido do nó.
+    # Você pode optar por desativar a consolidação completamente definindo o valor de string 'Never' aqui.
+    consolidateAfter: 1m | Never # Adicionado para permitir controle adicional sobre a agressividade da consolidação
+
+    # Orçamentos (Budgets) controlam a velocidade com que o Karpenter pode reduzir a escala dos nós.
+    # O Karpenter respeitará o mínimo dos orçamentos atualmente ativos e arredondará para cima
+    # ao considerar porcentagens. Duration e Schedule devem ser definidos juntos.
+    budgets:
+    - nodes: 10%
+    # Durante a semana em horário comercial, não fazer nenhum desprovisionamento.
+    - schedule: "0 9 * * mon-fri"
+      duration: 8h
+      nodes: "0"
+
+  # Limites de recursos (Resource limits) restringem o tamanho total do pool.
+  # Os limites impedem que o Karpenter crie novas instâncias uma vez que o limite seja excedido.
+  limits:
+    cpu: "1000"
+    memory: 1000Gi
+
+  # Prioridade dada ao Pool de Nós (NodePool) quando o agendador considera qual Pool de Nós
+  # selecionar. Pesos mais altos indicam maior prioridade ao comparar Pools de Nós.
+  # Não especificar um peso é equivalente a especificar um peso de 0.
+  weight: 10
+status:
+  conditions:
+    - type: Initialized
+      status: "False"
+      observedGeneration: 1
+      lastTransitionTime: "2024-02-02T19:54:34Z"
+      reason: NodeClaimNotLaunched
+      message: "NodeClaim hasn't succeeded launch"
+  resources:
+    cpu: "20"
+    memory: "8192Mi"
+    ephemeral-storage: "100Gi"

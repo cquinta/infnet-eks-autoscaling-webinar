@@ -36,9 +36,30 @@ spec:
         app: moc
     spec:
       serviceAccountName: moc-user
+      terminationGracePeriodSeconds: 0
+      # Descomentar para o karpenter
+      #topologySpreadConstraints:
+      #- maxSkew: 1
+      #  topologyKey: capacity-spread
+      #  whenUnsatisfiable: DoNotSchedule
+      #  labelSelector:
+      #    matchLabels:
+      #      app: moc
+      
+      # Exemplo de Node Affinity para o karpenter
+      #affinity:
+       # nodeAffinity:
+        #  requiredDuringSchedulingIgnoredDuringExecution:
+         #   nodeSelectorTerms:
+          #  - matchExpressions:
+           #   - key: node.kubernetes.io/instance-type
+            #    operator: In
+             #   values:
+              #  - t3.micro
+              
       containers:
       - name: moc
-        image: cquinta/moc-app:main  # Imagem da aplicação mock
+        image: cquinta/moc-app:beta1  # Imagem da aplicação mock
         imagePullPolicy: Always
         env:
         - name: VERSION
@@ -69,12 +90,15 @@ spec:
             path: /healthcheck
             port: 8000
           periodSeconds: 60
+
         
        # livenessProbe:
        #   httpGet:
        #     path: /healthcheck
        #     port: 8000
        #   periodSeconds: 15
+
+
 ---
 # Service ClusterIP para acesso interno à aplicação MOC
 apiVersion: v1
