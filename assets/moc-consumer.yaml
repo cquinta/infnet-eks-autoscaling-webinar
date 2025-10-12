@@ -15,13 +15,13 @@ spec:
     spec:
       serviceAccountName: moc-user
       # Descomentar para o karpenter
-      #topologySpreadConstraints:
-      #- maxSkew: 1
-      #  topologyKey: capacity-spread
-      #  whenUnsatisfiable: DoNotSchedule
-      #  labelSelector:
-      #    matchLabels:
-      #      app: consumer
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: capacity-spread
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: consumer
       
       containers:
       - name: curl-container

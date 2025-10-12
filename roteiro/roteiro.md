@@ -277,16 +277,27 @@ vamos iniciar um deploy chamado consumer que roda o endpoint receive message de 
           done
 
 ```
+Vamos rodar a aplicação consumer
 
 ```bash
 kubectl apply -f ./assets/moc-consumer.yaml
 ```
+
 
 Agora vamos iniciar o scaledobject
 
 ```bash
 kubectl apply -f ./assets/keda_scale_consumer.yaml
 ```
+
+Vamos iniciar um loop que escreva mensagens na fila através do endpoint /sent-message
+```bash
+while true; do curl -X 'POST'   'http://moc.cquinta.com/sent-message'   -H 'accept: application/json'   -H 'Content-Type: application/json'   -d '{
+  "message": "hello webinar!!"
+}'; echo ; done
+
+```
+
 
 Conforme o número de mensagens na fila sobre podemos verificar o número de pods subindo, é possível notar também que alguns pods ficam em estado "pending" significando que não houve recursos para agendá-los. 
 
@@ -302,38 +313,66 @@ Para iniciar o Karpenter é preciso setar a variável "criar_karpenter" como tru
 
 <img title="Karpenter 1"  alt="Alt text" src="./karpenter_nos.png">
 
-Vamos agora colocar nossa aplicação para rodar apenas em nós do karpenter descomentando no manifesto da mesma as linhas referentes à topologia
-
-O comportamento esperado é que tenhamos a aplicação consumer rodando em nós do karpenter e que a cada 3 nós do nodepool spot suba um nó do nodepool ondemand para mitigar a possibilidade de término inesperado dos nós spot. 
-
-
-
-
-
-
-
-
-Instalação 
-
-* Marcar a opção criar Karpenter no terrform.tfvars
-
-## Verificação
+Vamos verificar os nodepools 
 
 ```bash
 kubectl get nodepools 
-kubectl get nodeclasses
-```
-
-Logs
-
-```bash
-kubectl -n karpenter logs -l app.kubernetes.io/name=karpenter | grep launched | jq -s
 
 ```
 
-## Início dos Testes
+Nossa configuração possui 2 nodepools -> spotpool e ondemandpool
 
-* Escalar a aplicação e verificar se os nós estão sendo criados com o spread de capacidade desejado. 
+O spotpool cria instancias spot e o ondemandpool cria instâncias ondemand. 
 
-* Testar a affinidade. 
+Para mostrar como podemos influenciar a estratégia de criação de instâncias do karpenter montamos uma estratégia em que será criada 1 instância ondemand para cada 3 instâncias spot. Esta estratégia visa mitigar o risco de termino inesperado de instâncias spot garantindo uma quantidade mínima de instâncias ondemand. 
+
+A estratégia se baseou na chave capacity-spread:
+
+**Nodepool spotpool**
+
+```Yaml
+name            = "spotpool"
+    workload        = "spotpool"
+    ami_family      = "Bottlerocket"
+    ami_ssm         = "/aws/service/bottlerocket/aws-k8s-1.31/x86_64/latest/image_id"
+    instance_family = ["t3", "t3a", "c6", "c6a", "c7", "c7a"]
+    instance_sizes  = ["large", "xlarge", "2xlarge"]
+    #capacity_type      = ["spot", "on-demand"]
+    capacity_type      = ["spot"]
+    capacity_spread    = ["b","c","d"]
+    availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+```
+
+**Nodepool ondemandpool**
+
+```yaml
+name            = "ondemandpool"
+    workload        = "ondemandpool"
+    ami_family      = "Bottlerocket"
+    ami_ssm         = "/aws/service/bottlerocket/aws-k8s-1.31/x86_64/latest/image_id"
+    instance_family = ["t3", "t3a", "c6", "c6a", "c7", "c7a"]
+    instance_sizes  = ["large", "xlarge", "2xlarge"]
+    #capacity_type      = ["spot", "on-demand"]
+    capacity_type      = ["on-demand"]
+    capacity_spread    = ["a"]
+    availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+```
+
+**Aplicação Consumer**
+```yaml
+topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: capacity-spread
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: consumer
+
+```
+
+
+
+
+
+
 
