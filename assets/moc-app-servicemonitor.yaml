@@ -3,10 +3,7 @@ kind: ServiceMonitor
 metadata:
   name: moc-sm
   namespace: moc
-  # Geralmente, o Prometheus Operator busca por ServiceMonitors com um label específico.
-  # Verifique a configuração do seu Prometheus Operator. 'release: prometheus' é comum com o Helm.
-  #labels:
-  #  release: prometheus # Ajuste este label se necessário
+  
 spec:
   selector:
     matchLabels:
@@ -15,4 +12,4 @@ spec:
   endpoints:
   - port: http # Deve corresponder ao nome da porta no Service
     #path: /metrics # A rota onde as métricas são expostas
-    interval: 15s # Frequência de coleta
+    interval: 10s # Frequência de coleta

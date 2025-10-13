@@ -93,6 +93,44 @@ Espera-se:
 
 
 
+A aplicação de referência expõe métricas através do endpoint /metrics
+
+```
+
+http_requests_total{handler="/healthcheck",method="GET",status="2xx"} 36.0
+http_requests_total{handler="/docs",method="GET",status="2xx"} 1.0
+http_requests_total{handler="/openapi.json",method="GET",status="2xx"} 1.0
+http_requests_total{handler="/cpu/{duration_seconds}",method="GET",status="2xx"} 41.0
+http_requests_total{handler="/metrics",method="GET",status="2xx"} 1.0
+
+```
+
+Neste lab Vamos utilizar a média do somatório das requests por segundo tirada em um minuto para disparar uma ação de autoscaling. Para que isto seja possível, vamos iniciar um servicemonitor para que as métricas da aplicação fiquem disponíveis no prometheus. 
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: moc-sm
+  namespace: moc
+  
+spec:
+  selector:
+    matchLabels:
+      # Este seletor deve corresponder ao label do seu Service
+      app: moc
+  endpoints:
+  - port: http # Deve corresponder ao nome da porta no Service
+    #path: /metrics # A rota onde as métricas são expostas
+    interval: 10s # Frequência de coleta
+```
+
+```bash
+kubectl apply -f ./assets/moc-app-servicemonitor.yaml
+```
+
+A métrica deve ficar disponível no grafana. 
+
 
 ## Autoscaling de Workload
 
@@ -143,26 +181,7 @@ Num primeiro momento este script vai fazer com que o consumo e CPU suba e sejam 
 
 <img title="HPA Utilização de CPU" alt="Alt text" src="./hpa-cpu.png">
 
-A aplicação de referência expõe métricas através do endpoint /metrics
 
-```
-
-http_requests_total{handler="/healthcheck",method="GET",status="2xx"} 36.0
-http_requests_total{handler="/docs",method="GET",status="2xx"} 1.0
-http_requests_total{handler="/openapi.json",method="GET",status="2xx"} 1.0
-http_requests_total{handler="/cpu/{duration_seconds}",method="GET",status="2xx"} 41.0
-http_requests_total{handler="/metrics",method="GET",status="2xx"} 1.0
-
-```
-
-Vamos utilizar a média do somatório das requests por segundo tirada em um minuto para disparar uma ação de autoscaling, utilizando recursos nativos do Kubernetes e o 
-prometheus.
-
-Primeiro vamos iniciar um servicemonitor para que as métricas da aplicação fiquem disponíveis no prometheus
-
-```bash
-kubectl apply -f ./assets/moc-app-smonitor.yaml
-```
 Agora vamos criar um adapter do prometheus que exponha a métrica desejada na api de métricas customizadas. 
 
 ```yaml
