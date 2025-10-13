@@ -2,11 +2,11 @@
 
 ## Lab
 
-O laboratóro possui, inicialmente, um VPC contendo: 
+O laboratóro possui um VPC contendo: 
 
 * 3 subnets públicas, cada uma em uma zona de disponibilidade
 * 3 subnets para os pods e worker nodes, cada uma numa zona de disponibilidade
-* Um cluster EKS com o um managed node group com as seguintes configurações: 
+* Um cluster EKS com o um managed node group que tem seguintes configurações: 
     - Tipo de instâncias pode ser configurado através da variável node_instance_sizes conforme o exemplo: 
 ```bash  
 nodes_instance_sizes = [
@@ -21,10 +21,33 @@ auto_scale_options = {
 }
 ```
 
-* Um aplication load balancer com endpoint nas 3 subredes públicas;
+* Um aplication load balancer com endpoint nas 3 subredes públicas um listener e um target group;
+
 O diagrama abaixo mostra uma visão macro do cluster
 
 <img title="Diagrama Macro do Laboratório" alt="Alt text" src="./aws-eks-diagram.png">
+
+
+A [aplicação de referência](https://github.com/cquinta/testapp) a instalada no cluster através de um manifesto que contém: 
+
+* Um namespace -> moc
+* um deploy -> moc
+* um serviço do tipo ClusterIP expondo a porta 8000  -> moc
+* Uma service account -> moc-user
+
+Esta service account está linkada com a role que tem permissão para escrever em filas sqs através do addon podidentity. 
+
+A aplicação recebe como parâmetros uma versão, a região onde ela está rodando e uma fila SQS onde ela poderá escrever e ler, deletando a mensagem da fila.
+
+```yaml
+env:
+        - name: VERSION
+          value: "v2"  # Versão da aplicação
+        - name: SQS_QUEUE_URL
+          value: "https://sqs.us-east-1.amazonaws.com/707257249187/teste" # Endpoint da Fila do SQS
+        - name: AWS_REGION
+          value: "us-east-1"  # Região AWS
+```
 
 
 Durante a instalação do Istio será criado um target group binding que linka o target group criado com o ingress gateway do Istio.
@@ -44,38 +67,19 @@ spec:
 
 ```
 
-A [aplicação de referência](https://github.com/cquinta/testapp) a instalada no cluster através de um manifesto que contém: 
-
-* Um namespace -> moc
-* um deploy -> moc
-* um serviço do tipo ClusterIP expondo a porta 8000  -> moc
-* Uma service account -> moc-user
-
-Esta service account está linkada com a role que tem permissão para escrever em filas sqs através do addon podidentity. 
-
 A exposição da aplicação para a internet ocorre através do ingress gateway do Istio, conforme o diagrama abaixo: 
 
 <img title="Aplicação de Referência" alt="Alt text" src="./fluxo.png">
 
-A aplicação recebe como parâmetros uma versão, a região onde ela está rodando e uma fila SQS onde ela poderá escrever e ler, deletando a mensagem da fila.
-
-```yaml
-env:
-        - name: VERSION
-          value: "v2"  # Versão da aplicação
-        - name: SQS_QUEUE_URL
-          value: "https://sqs.us-east-1.amazonaws.com/707257249187/teste" # Endpoint da Fila do SQS
-        - name: AWS_REGION
-          value: "us-east-1"  # Região AWS
-```
 
 Vamos inicicar dipsobilizando a aplicação no custer através dos seguintes manifestos: 
 
 ```bash
 kubectl apply -f ./assets/moc-app.yaml
-kubectl apply -f ./assets/moc-istio.yaml
+kubectl apply -f ./assets/moc-app-istio.yaml
 ```
-Vericar se a aplciação está rodando através do endpoint do Swagger
+Vericar se a aplciação está rodando através do endpoint do [Swagger](http://moc.cquinta.com/docs)
+
 
 <img title="Swagger da Aplicação de Referência" alt="Alt text" src="./swagger.png">
 

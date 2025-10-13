@@ -10,10 +10,10 @@ data "aws_iam_policy_document" "keda_role" {
     }
 
    ### Descomentar para o Keda com SQS ###
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::707257249187:role/webinar-infnet-keda"]
-    }
+   # principals {
+   #   type        = "AWS"
+   #   identifiers = ["arn:aws:iam::707257249187:role/webinar-infnet-keda"]
+   # }
 
     actions = [
       "sts:AssumeRole",
