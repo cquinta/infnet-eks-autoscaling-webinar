@@ -23,15 +23,15 @@ resource "aws_eks_node_group" "main" {
   }
 
   # Tipo de capacidade - instâncias sob demanda para maior previsibilidade
-  capacity_type = "SPOT"
-  #capacity_type = "ON_DEMAND"
+  # capacity_type = "SPOT"
+  capacity_type = "ON_DEMAND"
 
   # Labels para identificação e seleção de nós pelos pods
   labels = {
     "capacity/os"   = "BOTTLEROCKET"
     "capacity/arch" = "x86_64"
-    "capacity/type" = "SPOT"
-    #"capacity/type" = "ON_DEMAND"
+    #"capacity/type" = "SPOT"
+    "capacity/type" = "ON_DEMAND"
     "compute-type" = "ec2"
   }
 

@@ -15,34 +15,57 @@ nodes_instance_sizes = [
     - Número mínimo, máximo e desejado de nós pode ser configurado através da variável auto_scale_options conforme o exemplo: 
 ```bash
 auto_scale_options = {
-  min     = 2
+  min     = 3
   max     = 10
-  desired = 2
+  desired = 3
 }
 ```
 
-* Um aplication load balancer com endpoint nas 3 subredes públicas um listener e um target group;
+* Um Aplication Load Balancer com endpoint nas 3 subredes públicas um listener e um target group;
 
 O diagrama abaixo mostra uma visão macro do cluster
 
 <img title="Diagrama Macro do Laboratório" alt="Alt text" src="./aws-eks-diagram.png">
 
 
-A [aplicação de referência](https://github.com/cquinta/testapp) a instalada no cluster através de um manifesto que contém: 
+A [aplicação de referência](https://github.com/cquinta/testapp) é instalada no cluster através de um manifesto que contém: 
 
 * Um namespace -> moc
 * um deploy -> moc
 * um serviço do tipo ClusterIP expondo a porta 8000  -> moc
-* Uma service account -> moc-user
+* Uma serviceaccount -> moc-user
 
-Esta service account está linkada com a role que tem permissão para escrever em filas sqs através do addon podidentity. 
+Esta serviceaccount está linkada com a role do AWS IAM que tem permissão para escrever em filas sqs, isto é feito através do addon podidentity.
 
-A aplicação recebe como parâmetros uma versão, a região onde ela está rodando e uma fila SQS onde ela poderá escrever e ler, deletando a mensagem da fila.
+```yaml
+resource "aws_eks_addon" "pod_identity" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "eks-pod-identity-agent"
+
+  addon_version               = data.aws_eks_addon_version.pod_identity.version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_eks_access_entry.nodes
+  ]
+}
+```
+
+```yaml
+resource "aws_eks_pod_identity_association" "sqs" {
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "moc"
+  service_account = "moc-user"
+  role_arn        = aws_iam_role.sqs.arn
+}
+```
+
+
+A aplicação recebe como parâmetros a região onde ela está rodando e uma fila SQS onde ela poderá escrever e ler, deletando a mensagem da fila.
 
 ```yaml
 env:
-        - name: VERSION
-          value: "v2"  # Versão da aplicação
         - name: SQS_QUEUE_URL
           value: "https://sqs.us-east-1.amazonaws.com/707257249187/teste" # Endpoint da Fila do SQS
         - name: AWS_REGION
@@ -69,6 +92,47 @@ spec:
 
 A exposição da aplicação para a internet ocorre através do ingress gateway do Istio, conforme o diagrama abaixo: 
 
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: moc
+  namespace: moc
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "moc.cquinta.com" 
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: moc
+  namespace: moc
+spec:
+  hosts:
+  - "moc.moc.svc.cluster.local"
+  - "moc.cquinta.com"
+  gateways:
+  - moc
+  http:
+  - route:
+    - destination:
+        host: moc
+        port:
+          number: 8000
+    retries:
+      attempts: 3
+      perTryTimeout: 500ms
+      retryOn: 5xx
+---
+```
+
 <img title="Aplicação de Referência" alt="Alt text" src="./fluxo.png">
 
 
@@ -86,12 +150,12 @@ Vericar se a aplciação está rodando através do endpoint do [Swagger](http://
 Verificar o estado do cluster com a aplicação rodando, antes de iniciar os testes: 
 Espera-se: 
 * Baixa utilização de CPU no namespace
-* 2 nós no nodegroup
+* 3 nós no nodegroup
 * 1 pod rodando a aplicação
 
-<img title="Estado Inicial do Cluster" alt="Alt text" src="./estado-inicial-cluster.png">
 
-O manifesto da aplicação estabelece que cada pod vai precisar de 0.25 CPU e 128 M de memória RAM para rodar 
+
+O manifesto da aplicação estabelece, através das requests, que cada pod vai precisar de 0.25 CPU e 128 M de memória RAM para rodar 
 
 ```yaml
 resources:
@@ -109,16 +173,15 @@ O que significa que caso o nó não possua esta quantidade de recursos disponív
 A aplicação de referência expõe métricas através do endpoint /metrics
 
 ```
-
 http_requests_total{handler="/healthcheck",method="GET",status="2xx"} 36.0
 http_requests_total{handler="/docs",method="GET",status="2xx"} 1.0
 http_requests_total{handler="/openapi.json",method="GET",status="2xx"} 1.0
 http_requests_total{handler="/cpu/{duration_seconds}",method="GET",status="2xx"} 41.0
 http_requests_total{handler="/metrics",method="GET",status="2xx"} 1.0
-
 ```
 
-Neste lab Vamos utilizar a média do somatório das requests por segundo tirada em um minuto para disparar uma ação de autoscaling. Para que isto seja possível, vamos iniciar um servicemonitor para que as métricas da aplicação fiquem disponíveis no prometheus. 
+Neste lab Vamos utilizar a média do somatório das requests por segundo tirada em um minuto para disparar uma ação de autoscaling. 
+Para que isto seja possível, vamos iniciar um servicemonitor para que as métricas da aplicação fiquem disponíveis no prometheus. 
 
 ```yaml
 apiVersion: monitoring.coreos.com/v1
@@ -155,7 +218,7 @@ Certifique-se de que não há nenhum hpa rodando no namespace moc
 
 Agora vamos criar um scaledobject que monitora o número de requisições por segundo no service moc. 
 
-Isto pode ser feito através da métrica específica já entregue pelo service monitor do istio
+Isto pode ser feito através da métrica específica, já entregue pelo servicemonitor do istio
 
 ```yaml
 triggers:
@@ -169,7 +232,7 @@ triggers:
 
 ```
 
-Ou através da métrica exposta pela nossa aplicação 
+Ou através da métrica exposta pela nossa aplicação entregue ao prometheus pelo servicemonitor que acabamos de subir. 
 
 ```yaml
 triggers:
@@ -182,11 +245,17 @@ triggers:
         sum(rate(http_requests_total[1m]))
 ```
 
+O Keda implementa uma definição de recurso personalizado (CRD), scaledobject que vincula uma carga de trabalho do Kubernetes (como um Deployment ou StatefulSet) a uma fonte de evento externa, definindo as regras de escalonamento automático com base em métricas. 
+
+Ele permite que o KEDA escale aplicações de forma dinâmica, inclusive para zero réplicas, quando não há eventos para processar.
+
+Vamos subir o scaledobject que monitora a nossa métrica no prometheus.
+
 ```bash 
 kubectl apply -f ./assets/keda_scale_tps.yaml
 
 ```
-Verifique que o Keda criou um hpa no namespace moc
+Verifique que o Keda criou o scaledobject e um hpa no namespace moc
 
 Vamos utilizar o k6 para gerar uma quantidade de requests durante um período e verificar o comportamento do HPA
 
@@ -266,6 +335,31 @@ Nossa aplicação é então configurada para respeitar o capacity-spread distrib
       #      app: moc
 ```
 
+Agora vamos testar o autosaling do cluster em conjunto com o autoscaling de workloads em um contexto de producer/consumer utlizando como métrica o número de mensagens em uma fila SQS. 
+
+Para isto vamos utlizar a integração do Keda com o serviço SQS
+
+Para isto a role utilizada pelo Keda precisa ter o principal AWS configurado
+
+```yaml
+#principals {
+    #  type        = "AWS"
+    #  identifiers = ["arn:aws:iam::707257249187:role/webinar-infnet-keda"]
+    #}
+```
+
+
+```yaml
+- type: aws-sqs-queue
+    authenticationRef:
+      name: keda-trigger-auth-aws-credentials
+    metadata:
+      awsRegion: us-east-1
+      queueURL: https://sqs.us-east-1.amazonaws.com/707257249187/teste
+      queueLength: "10" # <---- Quantidade de mensagens na fila. No exemplo, 20 mensagens. 
+      identityOwner: operator
+
+```
 
 
 
@@ -279,8 +373,7 @@ Nossa aplicação é então configurada para respeitar o capacity-spread distrib
 
 
 
-
-
+## Outros Testes
 
 
 ### HPA
