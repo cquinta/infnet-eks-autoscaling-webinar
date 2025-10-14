@@ -44,7 +44,7 @@ spec:
     metadata:
       awsRegion: us-east-1
       queueURL: https://sqs.us-east-1.amazonaws.com/707257249187/teste
-      queueLength: "20" # <---- Quantidade de mensagens na fila. No exemplo, 20 mensagens. 
+      queueLength: "10" # <---- Quantidade de mensagens na fila. No exemplo, 20 mensagens. 
       identityOwner: operator
 
       
