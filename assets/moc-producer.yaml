@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer
+  namespace: moc
+spec:
+  
+  selector:
+    matchLabels:
+      app: producer
+  template:
+    metadata:
+      labels:
+        app: producer
+    spec:
+      serviceAccountName: moc-user
+          
+      containers:
+      - name: curl-container
+        image: curlimages/curl:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            curl -X 'POST' 'http://moc.moc.svc.cluster.local:8000/sent-message' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{ "message": "Hello Webinar"}';
+            sleep 1;
+          done
+        resources:
+          requests:  # Recursos mínimos garantidos
+            cpu: 250m     # 1/4 de CPU
+            memory: 128Mi # 128MB de memória
+          #limits:    # Limites máximos
+          #  cpu: 500m     # 1/2 de CPU
+          #  memory: 256Mi

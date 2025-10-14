@@ -38,13 +38,13 @@ spec:
       serviceAccountName: moc-user
       terminationGracePeriodSeconds: 0
       # Descomentar para o karpenter
-      #topologySpreadConstraints:
-      #- maxSkew: 1
-      #  topologyKey: capacity-spread
-      #  whenUnsatisfiable: DoNotSchedule
-      #  labelSelector:
-      #    matchLabels:
-      #      app: moc
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: capacity-spread
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: moc
       
       # Exemplo de Node Affinity para o karpenter
       #affinity:

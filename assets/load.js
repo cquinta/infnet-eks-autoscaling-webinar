@@ -6,7 +6,7 @@ export let options = {
         { duration: '10s', target: 20 },   
         { duration: '20s', target: 50 },  
         { duration: '30s', target: 80 },
-        { duration: '120s', target: 100 },
+        { duration: '180s', target: 150 },
     ]
 };
 

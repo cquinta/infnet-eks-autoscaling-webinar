@@ -91,6 +91,19 @@ Espera-se:
 
 <img title="Estado Inicial do Cluster" alt="Alt text" src="./estado-inicial-cluster.png">
 
+O manifesto da aplicação estabelece que cada pod vai precisar de 0.25 CPU e 128 M de memória RAM para rodar 
+
+```yaml
+resources:
+          requests:  # Recursos mínimos garantidos
+            cpu: 250m     # 1/4 de CPU
+            memory: 128Mi # 128MB de memória
+          limits:    # Limites máximos
+            cpu: 500m     # 1/2 de CPU
+            memory: 256Mi
+```
+
+O que significa que caso o nó não possua esta quantidade de recursos disponíveis o pod vai ficar em status "pendente" e não será agendado.
 
 
 A aplicação de referência expõe métricas através do endpoint /metrics
@@ -125,20 +138,150 @@ spec:
     interval: 10s # Frequência de coleta
 ```
 
+
 ```bash
 kubectl apply -f ./assets/moc-app-servicemonitor.yaml
 ```
 
 A métrica deve ficar disponível no grafana. 
 
-
 ## Autoscaling de Workload
 
-Para testar o autoscaling de workloads no EKS vamos utilizar os seguintes recursos: 
+### KEDA
 
-* HPA nativo do Kubernetes
-* HPA nativo do Kubernetes utilizando métrica customizada
-* KEDA 
+Vamos utilizar a integração do Keda com o prometheus 
+
+Certifique-se de que não há nenhum hpa rodando no namespace moc
+
+Agora vamos criar um scaledobject que monitora o número de requisições por segundo no service moc. 
+
+Isto pode ser feito através da métrica específica já entregue pelo service monitor do istio
+
+```yaml
+triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
+      metricName: istio_requests_total 
+      threshold: "10" # <---- Quantidade de requisições por pod. No exemplo, 10 TPS. 
+      query: |
+        sum(rate(istio_requests_total{destination_service_name="moc"}[1m])) 
+
+```
+
+Ou através da métrica exposta pela nossa aplicação 
+
+```yaml
+triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
+      metricName: istio_requests_total 
+      threshold: "10" # <---- Quantidade de requisições por pod. No exemplo, 10 TPS. 
+      query: |
+        sum(rate(http_requests_total[1m]))
+```
+
+```bash 
+kubectl apply -f ./assets/keda_scale_tps.yaml
+
+```
+Verifique que o Keda criou um hpa no namespace moc
+
+Vamos utilizar o k6 para gerar uma quantidade de requests durante um período e verificar o comportamento do HPA
+
+```bash
+k6 run ./assets/load.js
+```
+Isso fará com que haja um pico de requisições e um aumento do número de pods para lidar com o pico, uma vez terminado o pico o número de pods retornará ao normal. 
+
+É possível notar que há uma quantidade de pods em estado "pending" isto ocorre por que só há 2 nós no cluster e não há recursos suficientes para garantir os requests no 
+
+
+## Autoscaling do Cluster
+
+Para tratar o autoscale do cluster vamos iniciar o Karpenter com dois nodepools, um com instâncias spot e outro com instâncias ondemand. 
+
+Para iniciar o Karpenter é preciso setar a variável "criar_karpenter" como true no terraform.tfvars e aplicar as modificações. 
+
+É possível notar que a quantidade de nós passou a subir de forma a acomodar os novos pods 
+
+<img title="Karpenter 1"  alt="Alt text" src="./karpenter_nos.png">
+
+Vamos verificar os nodepools 
+
+```bash
+kubectl get nodepools 
+
+```
+
+Nossa configuração possui 2 nodepools -> spotpool e ondemandpool
+
+O spotpool cria instancias spot e o ondemandpool cria instâncias ondemand. 
+
+Para mostrar como podemos influenciar a estratégia de criação de instâncias do karpenter montamos uma estratégia em que será criada 1 instância ondemand para cada 3 instâncias spot. Esta estratégia visa mitigar o risco de término inesperado de instâncias spot garantindo uma quantidade mínima de instâncias ondemand. 
+
+A estratégia se baseou na chave capacity-spread:
+
+**Nodepool spotpool**
+
+```Yaml
+name            = "spotpool"
+    workload        = "spotpool"
+    ami_family      = "Bottlerocket"
+    ami_ssm         = "/aws/service/bottlerocket/aws-k8s-1.31/x86_64/latest/image_id"
+    instance_family = ["t3", "t3a", "c6", "c6a", "c7", "c7a"]
+    instance_sizes  = ["large", "xlarge", "2xlarge"]
+    #capacity_type      = ["spot", "on-demand"]
+    capacity_type      = ["spot"]
+    capacity_spread    = ["b","c","d"]
+    availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+```
+
+**Nodepool ondemandpool**
+
+```yaml
+name            = "ondemandpool"
+    workload        = "ondemandpool"
+    ami_family      = "Bottlerocket"
+    ami_ssm         = "/aws/service/bottlerocket/aws-k8s-1.31/x86_64/latest/image_id"
+    instance_family = ["t3", "t3a", "c6", "c6a", "c7", "c7a"]
+    instance_sizes  = ["large", "xlarge", "2xlarge"]
+    #capacity_type      = ["spot", "on-demand"]
+    capacity_type      = ["on-demand"]
+    capacity_spread    = ["a"]
+    availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+```
+
+Nossa aplicação é então configurada para respeitar o capacity-spread distribuindo igualmente os pods através dos labels dos nós.
+
+```yaml
+# Descomentar para o karpenter
+      #topologySpreadConstraints:
+      #- maxSkew: 1
+      #  topologyKey: capacity-spread
+      #  whenUnsatisfiable: DoNotSchedule
+      #  labelSelector:
+      #    matchLabels:
+      #      app: moc
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### HPA
 
@@ -239,38 +382,6 @@ Isso fará com que haja um pico de requisições e um aumento do número de pods
 
 <img title="Pico de Requisições" alt="Alt text" src="./pico-requests-per-second.png">
 
-### KEDA
-
-Fazer a mesma coisa através do Keda e verificar como é mais fácil, não sendo necessária a criação e instalação de adapters
-Para instalar o Keda é necessarío setar a variável "criar_keda" para "true" no terraform.tfvars e aplicar as configurações. 
-Certifique-se de que não há nenhum hpa rodando no namespace moc
-
-Agora vamos criar um scaledobject que monitora o número de requisições no service moc através do Istio 
-
-```yaml
-triggers:
-  - type: prometheus
-    metadata:
-      serverAddress: http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090
-      metricName: istio_requests_total 
-      threshold: "10" # <---- Quantidade de requisições por pod. No exemplo, 10 TPS. 
-      query: |
-        sum(rate(istio_requests_total{destination_service_name="moc"}[1m])) 
-
-```
-
-```bash 
-kubectl apply -f ./assets/keda_scale_tps.yaml
-```
-Verifique que o Keda criou um hpa no namespace moc
-
-Agora vamos rodar o mesmo teste
-```bash
-k6 run ./assets/load.js
-```
-
-<img title="Pico de Requisições no Istio Gateway"  alt="Alt text" src="./istio-moc-requests.png">
-
 É possível notar que há uma quantidade de pods em estado "pending" isto ocorre por que só há 2 nós no cluster e não há recursos suficientes para garantir os requests no 
 
 <img title="Pods em Pending"  alt="Alt text" src="./pending-pods-prompt.png">
@@ -278,9 +389,13 @@ k6 run ./assets/load.js
 <img title="Scaled Object Requests"  alt="Alt text" src="./requests-per-second-keda.png">
 
 
-Para testar a integração do Keda com eventos exteriores ao cluster, vamos testar um scaledobject que dispara uma ação de autoscale quando o número de mensagens em uma fila SQS passa de um determinado valor. 
 
-Retirar o comentário para adicionar o principal referente a fila na role do Keda e aplicar as modificações. 
+
+
+
+
+
+Para testar a integração do Keda com eventos exteriores ao cluster, vamos testar um scaledobject que dispara uma ação de autoscale quando o número de mensagens em uma fila SQS passa de um determinado valor. 
 
 Certifique-se de que não há nenhum hpa e nem scaledobject rodando no namespace moc.
 
